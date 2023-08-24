@@ -1,0 +1,12 @@
+DL : 0x88
+= : 0x87
+GOTO : 0x93
+szám érték vagy szám parameter : karakteresen jegyenként
+PRINT : 0xA8
+paraméter elválaszto , ; is karakteresen
+PEEK( : BA : A nyitózárójel a név része, nem kerül külön kódolásra, de a csukó zárójel karakteresen (0x29)
+változónév - ha nem speciális - akkor karakteresen
++ : 0x81
+: 0x3A - karakteresen tárolódik
+'" megjegyzés is karakteresen tárolódik a '" jelekkel együtt
+DATA : 0x97?
