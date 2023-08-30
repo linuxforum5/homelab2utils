@@ -255,7 +255,7 @@ char encode_line( FILE *htp, char* line, int line_length ) {
                         if ( ( current_char >= 'A' ) && ( current_char <= 'Z' ) ) {
                             varNameCharCounter++;
                         } else if ( current_char >= 'a' ) {
-                            fprintf( stderr, "Invalid source character: '%c'\n", current_char );
+                            fprintf( stderr, "Invalid source character: '%c' in line '%s'\n", current_char, line );
                             exit(4);
                         } else {
                             varNameCharCounter = 0;
@@ -289,12 +289,11 @@ void preload_labels( FILE *txt ) {
 
 // Line: NextRowAddrL NextRowAddrH NumL NumH tokenized 0
 // Program end: 0 0
-void encodeBasicFrom40A0( FILE *htp, FILE *txt ) { // Encode text into src.bytes
+void encodeBasicFrom40A0( FILE *htp, FILE *txt, FILE *BAS ) { // Encode text into src.bytes
     preload_labels( txt );
     uint16_t next_line_addr = BASIC_START;
     uint16_t line_number = 0;
     unsigned char line[ MAX_LINE_LENGTH+1 ];
-    unsigned char encoded_line[ MAX_LINE_LENGTH ];
     unsigned char label[ MAX_LABEL_LENGTH ];
     while( !feof( txt ) ) {
         int line_length = 0;
@@ -306,7 +305,8 @@ void encodeBasicFrom40A0( FILE *htp, FILE *txt ) { // Encode text into src.bytes
             crc_fputc( line_number / 256, htp );
             crc_fputc( line_number % 256, htp );
             line[ line_length ] = 0;
-            if ( verbose ) printf( "Convert line %d '%s'\n", line_number, line );
+            if ( BAS ) fprintf( BAS, "%d %s\n", line_number, line );
+            if ( verbose ) printf( "Converted line %d '%s'\n", line_number, line );
             encode_line( htp, line, line_length );
             crc_fputc( 0x60, htp );
         } else {
@@ -315,7 +315,7 @@ void encodeBasicFrom40A0( FILE *htp, FILE *txt ) { // Encode text into src.bytes
     }
 }
 
-void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address ) {
+void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address, FILE *BAS ) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Write DCB header
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -330,13 +330,14 @@ void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address ) {
 
 //     crc_write_word( 0x0004, htp );                           // 401E-401F   : 0004<-><------>// Primary acc
 //     crc_write_word( 0x4A85, htp );                           // 4020-4021   : 4A85<-><------>// Primary acc
-//     crc_write_word( 0xFE9B, htp );                           // 4022-4023   : FE9B<-><------>// Random number
-//     crc_write_word( 0x2F71, htp );                           // 4024-4025   : 2F71<-><------>// Random number
+    for( int i=0x401E; i<0x4022; i++ ) crc_fputc( 0x00, htp );
+     crc_write_word( 0xFE9B, htp );                           // 4022-4023   : FE9B<-><------>// Random number Ennek kell, hogy értéke legyen, különben a következő véletlen szám is 0 lesz
+     crc_write_word( 0x2F71, htp );                           // 4024-4025   : 2F71<-><------>// Random number
 //     crc_write_word( 0xFEFE, htp );                           // 4026-4027   : FEFE // ???
 //     crc_write_word( 0x0009, htp );                           // 4028-4029   : 0009<-><------>// Auxiliary Accumulator
 //     crc_write_word( 0x8133, htp );                           // 402A-402B   : 8133<-><------>// Auxiliary Accumulator
 //     crc_write_word( 0x5D4F, htp );                           // 402C-402D   : 5DF4<-><------>// Temporary register
-    for( int i=0x401E; i<0x402E; i++ ) crc_fputc( 0x00, htp );
+    for( int i=0x401E; i<0x4026; i++ ) crc_fputc( 0x00, htp );
 
     crc_write_word( 0x7FFF, htp );                           // 402E-402F   : 7FFF<-><------>// Current BASIC Line
     crc_write_word( 0x40A0, htp );                           // 4030 - 4031 : 40A0<----><------>// Start of BASIC program
@@ -376,7 +377,7 @@ void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address ) {
     crc_write_word( 0x1581, htp );                           // 4056 - 4057 : 1581<----><------>// Vector for Error              // 4056 : 81 15.
     for( int i=0x4058; i<0x40A0; i++ ) crc_fputc( 0x00, htp ); // 4058 - 406F :    0<--><------>// Stack for display generator   // 4058 : E9 FF E9 FB E9 F7 E9 F3 E9 EF E9 EB E9 E7 E9 E3 85 4D F2 02 76 4D 04 60
 
-    encodeBasicFrom40A0( htp, txt );
+    encodeBasicFrom40A0( htp, txt, BAS );
 
     // Next the BASIC close line. Size is 3 bytes:
     crc_fputc( 0x80, htp );

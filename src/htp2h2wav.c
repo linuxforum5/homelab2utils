@@ -11,8 +11,8 @@ unsigned char verbose = 0;
  **************************************************************************************************************************************************/
 const unsigned int defaultBaud = 44100; // 8000; // max 13000
 // uint16_t full_bytes_size = 0; // A kiírt hasznos bájtok száma
-const unsigned char  SILENCE = 0x80;
-const unsigned char POS_PEAK = 0xff; // 8;
+const unsigned char  SILENCE = 0x7F;
+const unsigned char POS_PEAK = 0xFF; // 8;
 const unsigned char NEG_PEAK = 0x00; // 8;
 
 /* WAV file header structure */
@@ -111,11 +111,11 @@ static void process_htp( FILE *input, FILE* output ) {
 }    
 
 static void print_usage() {
-    printf( "Htp2A16Wav v1.0\n");
-    printf( "Aircomp 16 Htp2Wav v1.0\n");
+    printf( "Htp2H2Wav v1.0\n");
+    printf( "Homelab 2 (Aircomp 16) Htp to Wav v1.0\n");
     printf( "Copyright 2023 by Laszlo Princz\n");
     printf( "Usage:\n");
-    printf( "htp2a16wav -i <input_filename> -o <output_filename>\n");
+    printf( "htp2h2wav -i <input_filename> -o <output_filename>\n");
     printf( "Command line option:\n");
     printf( "-f <freq> : Supported sample rates are: 48000, 44100, 22050, 11025 and 8000. Defaut is 44100Hz\n");
     printf( "-h        : prints this text\n");

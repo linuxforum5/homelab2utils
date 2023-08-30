@@ -27,7 +27,7 @@
 #include "lib/params.h"
 
 #define VM 0
-#define VS 1
+#define VS 2
 #define VB 'b'
 
 #define BASIC_START 0x40A0
@@ -46,10 +46,10 @@ void create_bin_htp_block( FILE *htp, FILE *bin, uint16_t bin_load_address, cons
     close_htp_block( htp, is_last );
 }
 
-void create_bas_htp_block( FILE *htp, FILE *txt, const char* htp_name, int is_last ) {
+void create_bas_htp_block( FILE *htp, FILE *txt, const char* htp_name, int is_last, FILE *BAS ) {
     uint16_t bas_load_address = 0x4016;
     write_htp_header( htp, 256, bas_load_address, htp_name );
-    write_htp_basic_payload( htp, txt, bas_load_address );
+    write_htp_basic_payload( htp, txt, bas_load_address, BAS );
     close_htp_block( htp, is_last );
 }
 /********************************************************************************************************************
@@ -65,12 +65,13 @@ void copy_to_name( char* basename ) {
  ********************************************************************************************************************/
 
 void print_usage() {
-    printf( "H2Bas2Htp v%d.%d%c (build: %s)\n", VM, VS, VB, __DATE__ );
+    printf( "H2CreateHtp v%d.%d%c (build: %s)\n", VM, VS, VB, __DATE__ );
     printf( "Copyright 2023 by László Princz\n");
-    printf( "Create a new .htp file from Aircomp 16 (Homelab 2) BASIC txt source file.\n");
+    printf( "Create a new .htp file from Homelab 2 (Aircomp 16) BASIC txt source file.\n");
     printf( "Usage:\n");
-    printf( "h2bas2htp [-svl] -i <source_bas_txt_file> -n <name_on_tape> -o <htp_filename>\n");
+    printf( "h2CreateHtp [-svl] -i <source_bas_txt_file> -n <name_on_tape> -o <htp_filename>\n");
     printf( "-t source_bas_txt_file : TXT file contains BASIC source code with line numbers.\n");
+    printf( "-B basic_output_fie    : Savce the final BASIC source code int htp file.\n");
     printf( "-b z80_bin_file        : z80 system binary block.\n");
     printf( "-L bin_load_address    : load address for binary block. Default value is 0x6000 (24576 in decimal).\n");
     printf( "-o htp_file_name       : Name of the new htp file.\n");
@@ -89,9 +90,10 @@ int main(int argc, char *argv[]) {
     char *destDir = 0;
     FILE *htp = 0;
     FILE *txt = 0;
+    FILE *BAS = 0;
     FILE *bin = 0;
     uint16_t bin_load_address = 0x6000;
-    while ( ( opt = getopt (argc, argv, "aplv?h:n:s:t:b:L:o:") ) != -1 ) {
+    while ( ( opt = getopt (argc, argv, "aplv?h:n:s:t:B:b:L:o:") ) != -1 ) {
         switch ( opt ) {
             case -1:
             case ':':
@@ -160,6 +162,14 @@ int main(int argc, char *argv[]) {
                 }
                 break;
 
+            case 'B': // Create BAS output file
+                BAS = fopen( optarg, "wb" );
+                if ( !BAS ) {
+                    fprintf( stderr, "Error creating %s.\n", optarg );
+                    exit(4);
+                }
+                break;
+
             case 'o': // Create htp file
                 htp = fopen( optarg, "wb" );
                 if ( !htp ) {
@@ -171,7 +181,8 @@ int main(int argc, char *argv[]) {
     }
     if ( htp && txt ) {
         dropExtIfExists( htp_name );
-        create_bas_htp_block( htp, txt, htp_name, !bin );
+        create_bas_htp_block( htp, txt, htp_name, !bin, BAS );
+        if ( BAS ) fclose( BAS );
         if ( bin ) create_bin_htp_block( htp, bin, bin_load_address, 0, 1 );
         close_htp_file( htp );
     } else {

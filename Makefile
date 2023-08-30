@@ -6,7 +6,7 @@ WBIN=win32
 BIN=bin
 INSTALL_DIR=~/.local/bin
 
-all: h2bas2htp htpinfo htp2h2wav h2CreateHtp
+all: h2bas2htp htpinfo htp2h2wav h2CreateHtp htp2bas
 
 h2bas2htp: $(SRC)/h2bas2htp.c
 	$(CC) -o $(BIN)/h2bas2htp $(SRC)/h2bas2htp.c
@@ -23,6 +23,10 @@ htp2h2wav: $(SRC)/htp2h2wav.c
 htpinfo: $(SRC)/htpinfo.c
 	$(CC) -o $(BIN)/htpinfo $(SRC)/htpinfo.c
 	$(WCC) -o $(WBIN)/htpinfo $(SRC)/htpinfo.c
+
+htp2bas: $(SRC)/htp2bas.c
+	$(CC) -o $(BIN)/htp2bas $(SRC)/htp2bas.c
+	$(WCC) -o $(WBIN)/htp2bas $(SRC)/htp2bas.c
 
 clean:
 	rm -f $(WBIN)/* $(BIN)/* *~ $(SRC)/*~ 

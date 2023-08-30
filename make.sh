@@ -1,3 +1,3 @@
 make all
 make install
-make clean
+# make clean
