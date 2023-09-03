@@ -69,6 +69,7 @@ void close_htp_block( FILE *htp, int is_last_block ) {
     // Back to end of file
     fseek( htp, end_position, SEEK_SET );
     fputc( crc, htp );
+    // fputc( is_last_block ? crc+1 : crc, htp );
     fputc( is_last_block ? 0x00 : 0xD8, htp );
 }
 

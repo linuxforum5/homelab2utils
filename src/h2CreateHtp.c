@@ -27,7 +27,7 @@
 #include "lib/params.h"
 
 #define VM 0
-#define VS 2
+#define VS 3
 #define VB 'b'
 
 #define BASIC_START 0x40A0
@@ -47,7 +47,7 @@ void create_bin_htp_block( FILE *htp, FILE *bin, uint16_t bin_load_address, cons
 }
 
 void create_bas_htp_block( FILE *htp, FILE *txt, const char* htp_name, int is_last, FILE *BAS ) {
-    uint16_t bas_load_address = 0x4016;
+    uint16_t bas_load_address = BASIC_BLOCK_LOAD_ADDRESS;
     write_htp_header( htp, 256, bas_load_address, htp_name );
     write_htp_basic_payload( htp, txt, bas_load_address, BAS );
     close_htp_block( htp, is_last );
@@ -77,8 +77,8 @@ void print_usage() {
     printf( "-o htp_file_name       : Name of the new htp file.\n");
     printf( "-n name_on_tape        : The tape name. Default name created from ptp filename.\n");
     printf( "-s character           : skip BASIC comments with this first character. ''=skip all comments. 'no'=disable comment skipping. Default value is '!'\n");
-    printf( "-p                     : with program protection\n");
-    printf( "-a                     : autostart and program break disabled (only in wav format)\n");
+    printf( "-p                     : with program protection and autostart after LOAD\n");
+    printf( "-i                     : Disable BASIC interrupt\n");
     printf( "-l                     : List tokens only.\n");
     printf( "-v                     : Verbose output.\n");
     exit(1);
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     FILE *BAS = 0;
     FILE *bin = 0;
     uint16_t bin_load_address = 0x6000;
-    while ( ( opt = getopt (argc, argv, "aplv?h:n:s:t:B:b:L:o:") ) != -1 ) {
+    while ( ( opt = getopt (argc, argv, "iplv?h:n:s:t:B:b:L:o:") ) != -1 ) {
         switch ( opt ) {
             case -1:
             case ':':
@@ -127,12 +127,12 @@ int main(int argc, char *argv[]) {
                 copy_to_name( optarg );
                 break;
 
-            case 'p': // Program protection
+            case 'p': // Program protection and autostart
                 program_protection_404C = 0;
                 break;
 
-            case 'a': // Autostart and no interrupt
-                program_autostart_403E = 1;
+            case 'i': // Basic interrupt
+                BASIC_interrupt_403E = 1;
                 break;
 
             case 't': // open txt file

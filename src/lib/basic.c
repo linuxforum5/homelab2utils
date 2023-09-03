@@ -14,6 +14,29 @@
 #define BASIC_START 0x40A0
 #define MAX_LINE_LENGTH 1000
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// DCB (Device Control Block) műveletei 0x4000-0x409FF
+/// Bináris autostarthoz:
+///   Addr      (Default value) : Jelentése
+/// - 4002-4003 (0306)          : Input vektor. A LOAD parancs befejezése után az itt megadott címre ugrik. Itt megadható a bináris program kezdőcíme
+/// - 4052-4053 (0CA9)          : Vector for BASIC interpreter. A HTP fájlok betöltése után nem ugrik a fenti címre, de ez a cím egy billentyűleutás után elindul.
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/********************************************************************************************************
+ * Standard BASIC programhoz a következő DCB értékeket kell betölteni
+ * - 4018-4019 : Start variables
+ * - 401A-401B : Start string variables
+ * - 401C-401D : End of string space
+ * - 403E      : BASIC interrupt: 1=tilt, 0=engedélyez
+ * - 404C      : Security flag, Programvédelem: 00=védi a programot, 10=nem védi
+ ********************************************************************************************************/
+/*void write_standard_DCB_for_BASIC_program_from_4018( FILE* htp, uint16_t end_BASIC_address ) {
+    crc_write_word( end_BASIC_address, htp );	// 4018 Write DCB+0x18<----->// Start variables
+    crc_write_word( end_BASIC_address+1, htp );	// 401A Write DCB+0x1A<--->// Start string variables
+    crc_write_word( end_BASIC_address+2, htp );	// 401C Write DCB+0x1C<--->// End of string space
+}
+*/
+
 int last_line_number = 0; // For auto line number
 
 /**
@@ -287,6 +310,35 @@ void preload_labels( FILE *txt ) {
     last_line_number = 0;
 }
 
+unsigned char newline[ MAX_LINE_LENGTH+1 ];
+unsigned char* labelness( unsigned char* line ) {
+    unsigned char label[ MAX_LINE_LENGTH+1 ];
+    int j=0;
+    int in_label = 0;
+    int l = 0;
+    for( int i=0; (i<MAX_LINE_LENGTH) && line[i]; i++ ) {
+        if ( line[i] == '{' ) {
+            in_label = 1;
+        } else if ( line[i] == '}' ) {
+            label[ l ] = 0;
+            uint16_t line_number = get_line_number( label );
+            char numstr[10] = { 0 };
+            sprintf( numstr, "%d", line_number );
+            for( int n=0; numstr[ n ] && ( n < 10 ); n++ ) newline[ j++ ] = numstr[ n ];
+            in_label = 0;
+            l = 0;
+        } else if ( in_label ) {
+            label[ l++ ] = line[ i ];
+        } else {
+            newline[ j++ ] = line[ i ];
+        }
+    }
+    newline[ j ] = 0;
+printf( "Old line: '%s'\n", line );
+printf( "New line: '%s'\n", newline );
+    return newline;
+}
+
 // Line: NextRowAddrL NextRowAddrH NumL NumH tokenized 0
 // Program end: 0 0
 void encodeBasicFrom40A0( FILE *htp, FILE *txt, FILE *BAS ) { // Encode text into src.bytes
@@ -305,7 +357,7 @@ void encodeBasicFrom40A0( FILE *htp, FILE *txt, FILE *BAS ) { // Encode text int
             crc_fputc( line_number / 256, htp );
             crc_fputc( line_number % 256, htp );
             line[ line_length ] = 0;
-            if ( BAS ) fprintf( BAS, "%d %s\n", line_number, line );
+            if ( BAS ) fprintf( BAS, "%d %s\n", line_number, labelness( line ) );
             if ( verbose ) printf( "Converted line %d '%s'\n", line_number, line );
             encode_line( htp, line, line_length );
             crc_fputc( 0x60, htp );
@@ -319,7 +371,20 @@ void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address, FILE 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// Write DCB header
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+/*
+     crc_write_word( 0x6000, htp );                           // 4002-4003   : 0306<-><------>// Input vektor. A LOAD parancs befejezése után az itt megadott címre ugrik
+     crc_write_word( 0x0534, htp );                           // 4004-4005   : 0534<-><------>// Output vektor
+     crc_write_word( 0xE001, htp );                           // 4006-4007   : E001<-><------>// Start of alpha
+     crc_fputc( 0xC8, htp );                                  // 4008        : C8<-><------>// DL
+     crc_fputc( 0x00, htp );                                  // 4009        : 00<-><------>// GL
+     crc_fputc( 0xC3, htp );                                  // 400A        : C3<-><------>// AL
+     crc_fputc( 0xC5, htp );                                  // 400B        : C5<-><------>// ???
+     crc_write_word( 0x1DC5, htp );                           // 400C-400D   : 1DC5<-><------>// Interrupt vector
+     crc_write_word( 0x157C, htp );                           // 400E-400F   : 157C<-><------>// Input vektor
+     crc_write_word( 0x7C15, htp );                           // 4010-4011   : 157C<-><------>// Print vektor
+     crc_write_word( 0x0000, htp );                           // 4012-4013   : 0000<-><------>// Monitor pointer
+     crc_write_word( 0xC119, htp );                           // 4013-4014   : c119<-><------>// Cursor position in RAM ( C001+0x28*Y + X )
+*/
     crc_write_word( 0x8000, htp )   ;                           // 4016 - 4017 : 8000<-><------>// HM
     long int dcb18_position = ftell( htp );                     //
     // Write 0x4018-0x40A0 DCB18- placeholder                   //
@@ -349,8 +414,8 @@ void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address, FILE 
 //     crc_write_word( 0x00DC, htp );                           // 4039-403A   : 00DC<-><------>// Current line for CONT
 //     crc_write_word( 0x8000, htp );                           // 403B-403C   : 8000<-><------>// Start of graphics area in RAM
     for( int i=0x4032; i<0x403D; i++ ) crc_fputc( 0x00, htp );
-    crc_fputc( 0x80, htp );                              // 403D        :   80<><------>// HM Page : HM high byte
-    crc_fputc( program_autostart_403E, htp );                              // 403E        :    0<------><------>// BASIC interrupt és autostart? 1=tilt, 0=engedélyez
+    crc_fputc( 0x80, htp );                                     // 403D        :   80<><------>// HM Page : HM high byte
+    crc_fputc( BASIC_interrupt_403E, htp );                     // 403E        :    0<------><------>// BASIC interrupt és autostart? 1=tilt, 0=engedélyez
 
 //     crc_fputc( 0*0x1D, htp );                              // 403F        :   1D<---><------>// Counter for cursor flashing
 //     crc_fputc( 0*0x00, htp );                              // 4040        :    0 // ???
@@ -361,9 +426,9 @@ void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address, FILE 
 //     crc_fputc( 0*0x00, htp );                              // 4046        :    0<---><------>// RST 10
 //     crc_fputc( 0*0x01, htp );                              // 4047        :   01<---><------>// RST 10
 //     crc_fputc( 0*0x00, htp );                              // 4048        :    0<---><------>// RST 10
-//     crc_write_word( 0x1581, htp );                           // 4049 - 404A : 1581 vagy 1582?<------>// Error vector
-//     crc_fputc( 0*0x0D, htp );                              // 404B        :   0D<---><------>// Previous character
-    for( int i=0x403F; i<0x404C; i++ ) crc_fputc( 0x00, htp );
+    for( int i=0x403F; i<0x4049; i++ ) crc_fputc( 0x00, htp );
+     crc_write_word( 0x1581, htp );                           // 4049 - 404A : 1581 vagy 1582?<------>// Error vector
+     crc_fputc( 0*0x0D, htp );                              // 404B        :   0D<---><------>// Previous character
 
     crc_fputc( program_protection_404C, htp );                // 404C        :   10<---><------>// Security flag : Programvédelem 00=védi a programot, 10=nem védi
 
@@ -372,9 +437,12 @@ void write_htp_basic_payload( FILE *htp, FILE *txt, uint16_t load_address, FILE 
 //     crc_write_word( 0*0xC350, htp );                           // 4050 - 4051 : C350><------>// Line number at Error
     for( int i=0x404D; i<0x4052; i++ ) crc_fputc( 0x00, htp );
 
-    crc_write_word( 0x0CA9, htp );                           // 4052 - 4053 : 0CA9<----><------>// Vector for interpreter.
+    crc_write_word( 0x0CA9, htp );                           // 4052 - 4053 : 0CA9<----><------>// Vector for BASIC interpreter.
+//    crc_write_word( 0x6000, htp );                           // 4052 - 4053 : 0CA9<----><------>// Vector for BASIC interpreter.
     crc_write_word( 0x0E18, htp );                           // 4054 - 4055 : 0E18<----><------>// Vector for listing
+//    crc_write_word( 0x6000, htp );                           // 4054 - 4055 : 0E18<----><------>// Vector for listing
     crc_write_word( 0x1581, htp );                           // 4056 - 4057 : 1581<----><------>// Vector for Error              // 4056 : 81 15.
+//    crc_write_word( 0x6000, htp );                           // 4056 - 4057 : 1581<----><------>// Vector for Error              // 4056 : 81 15.
     for( int i=0x4058; i<0x40A0; i++ ) crc_fputc( 0x00, htp ); // 4058 - 406F :    0<--><------>// Stack for display generator   // 4058 : E9 FF E9 FB E9 F7 E9 F3 E9 EF E9 EB E9 E7 E9 E3 85 4D F2 02 76 4D 04 60
 
     encodeBasicFrom40A0( htp, txt, BAS );

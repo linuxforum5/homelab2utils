@@ -60,7 +60,7 @@ void write_peaks( FILE *wav, int us, unsigned char value ) {
 }
 
 void write_bit_into_wav( FILE *wav, unsigned char bit ) {
-    int sync_us = 100; // 48000Hz esetén 50-200-ig ok
+    int sync_us = 200; // 48000Hz esetén 50-200-ig ok Homelab 4 alapjáűn 200us
     int space_us = 1600 - sync_us;
     unsigned char nulla = SILENCE; // NEG_PEAK
     if ( bit ) {
