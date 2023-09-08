@@ -14,6 +14,11 @@ const unsigned int defaultBaud = 44100; // 8000; // max 13000
 const unsigned char  SILENCE = 0x7F;
 const unsigned char POS_PEAK = 0xFF; // 8;
 const unsigned char NEG_PEAK = 0x00; // 8;
+unsigned char silence = SILENCE;
+unsigned char high = POS_PEAK;
+unsigned char low = SILENCE;
+int sync_us = 150; // 48000Hz esetén 50-200-ig ok Homelab 4 alapjáűn 200us
+int bit_length = 1600; // in us
 
 /* WAV file header structure */
 /* should be 1-byte aligned */
@@ -60,17 +65,16 @@ void write_peaks( FILE *wav, int us, unsigned char value ) {
 }
 
 void write_bit_into_wav( FILE *wav, unsigned char bit ) {
-    int sync_us = 200; // 48000Hz esetén 50-200-ig ok Homelab 4 alapjáűn 200us
-    int space_us = 1600 - sync_us;
-    unsigned char nulla = SILENCE; // NEG_PEAK
+    int space_us = bit_length - sync_us;
+    unsigned char nulla = low; // NEG_PEAK
     if ( bit ) {
         write_peaks( wav, ( space_us - sync_us ) / 2, nulla );
-        write_peaks( wav, sync_us, POS_PEAK );
+        write_peaks( wav, sync_us, high );
         write_peaks( wav, ( space_us - sync_us ) / 2, nulla );
     } else {
         write_peaks( wav, space_us, nulla );
     }
-    write_peaks( wav, sync_us, POS_PEAK );
+    write_peaks( wav, sync_us, high );
 }
 
 static void close_wav( FILE *wav ) {
@@ -96,7 +100,7 @@ static void init_wav( FILE *wavfile ) {
 
     fwrite( &waveHeader, sizeof( waveHeader ), 1, wavfile );
     /* Lead in silence */
-    write_peaks( wavfile, 2000, SILENCE );
+    write_peaks( wavfile, 2000, silence );
 }
 
 static void process_htp( FILE *input, FILE* output ) {
@@ -107,7 +111,7 @@ static void process_htp( FILE *input, FILE* output ) {
     }
     fclose( input );
 //    write_byte_into_wav( output, 0 );
-    write_peaks( output, 2000, SILENCE );
+    write_peaks( output, 2000, silence );
 }    
 
 static void print_usage() {
@@ -118,6 +122,11 @@ static void print_usage() {
     printf( "htp2h2wav -i <input_filename> -o <output_filename>\n");
     printf( "Command line option:\n");
     printf( "-f <freq> : Supported sample rates are: 48000, 44100, 22050, 11025 and 8000. Defaut is 44100Hz\n");
+    printf( "-S <value>: Silence value. [0-255] Default is 0x80\n");
+    printf( "-H <value>: High value. [0-255] Default is 0xff\n");
+    printf( "-L <value>: Low value. [0-255] Default is 0x80\n");
+    printf( "-P <us>   : Peak length in us Default is 150\n");
+    printf( "-B <us>   : Bit length in us Default is 1600\n");
     printf( "-h        : prints this text\n");
     exit(1);
 }    
@@ -128,7 +137,7 @@ int main(int argc, char *argv[]) {
     FILE *htp = 0, *wav = 0;
 
     while (!finished) {
-        switch (getopt (argc, argv, "?hf:i:o:g:")) {
+        switch (getopt (argc, argv, "?hf:H:S:L:P:B:i:o:g:")) {
             case -1:
             case ':':
                 finished = 1;
@@ -136,6 +145,46 @@ int main(int argc, char *argv[]) {
             case '?':
             case 'h':
                 print_usage();
+                break;
+            case 'H':
+                if ( !sscanf( optarg, "%i", &arg1 ) ) {
+                    fprintf( stderr, "Error parsing argument for '-H'.\n");
+                    exit(2);
+                } else {
+                    high = arg1;
+                }
+                break;
+            case 'L':
+                if ( !sscanf( optarg, "%i", &arg1 ) ) {
+                    fprintf( stderr, "Error parsing argument for '-L'.\n");
+                    exit(2);
+                } else {
+                    low = arg1;
+                }
+                break;
+            case 'S':
+                if ( !sscanf( optarg, "%i", &arg1 ) ) {
+                    fprintf( stderr, "Error parsing argument for '-S'.\n");
+                    exit(2);
+                } else {
+                    silence = arg1;
+                }
+                break;
+            case 'P':
+                if ( !sscanf( optarg, "%i", &arg1 ) ) {
+                    fprintf( stderr, "Error parsing argument for '-P'.\n");
+                    exit(2);
+                } else {
+                    sync_us = arg1;
+                }
+                break;
+            case 'B':
+                if ( !sscanf( optarg, "%i", &arg1 ) ) {
+                    fprintf( stderr, "Error parsing argument for '-B'.\n");
+                    exit(2);
+                } else {
+                    bit_length = arg1;
+                }
                 break;
             case 'f':
                 if ( !sscanf( optarg, "%i", &arg1 ) ) {
@@ -149,7 +198,7 @@ int main(int argc, char *argv[]) {
                     }
                     waveHeader.nSamplesPerSec = arg1;
                     waveHeader.nAvgBytesPerSec = arg1; // waveHeader.nSamplesPerSec*waveHeader.nChannels*(waveHeader.nBitsPerSample%8);
-                }    
+                }
                 break;
             case 'g':
                 if ( !sscanf( optarg, "%i", &arg1 ) ) {
