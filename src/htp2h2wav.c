@@ -106,10 +106,10 @@ static void init_wav( FILE *wavfile ) {
 }
 
 static void process_htp( FILE *input, FILE* output ) {
-    while ( !feof( input ) ) {
-        unsigned char c = fgetc( input );
-        // if ( !feof( input ) ) 
+    int c = fgetc(input);
+    while (c != EOF) {
         write_byte_into_wav( output, c );
+        c = fgetc(input);
     }
     fclose( input );
 //    write_byte_into_wav( output, 0 );
