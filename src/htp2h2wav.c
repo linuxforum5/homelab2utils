@@ -101,6 +101,8 @@ static void init_wav( FILE *wavfile ) {
     fwrite( &waveHeader, sizeof( waveHeader ), 1, wavfile );
     /* Lead in silence */
     write_peaks( wavfile, 2000, silence );
+    /* First sync peak */
+    write_peaks( wavfile, sync_us, high );
 }
 
 static void process_htp( FILE *input, FILE* output ) {
