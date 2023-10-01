@@ -39,6 +39,7 @@ char htp_name[65] = { 0 };
  * HTP functions
  ********************************************************************************************************************/
 void create_bin_htp_block( FILE *htp, FILE *bin, uint16_t bin_load_address, const char* htp_name, int is_last ) {
+printf( "!!! %04X\n", bin_load_address );
     write_htp_header( htp, 128, bin_load_address, htp_name );
     for( unsigned char c = fgetc( bin ); !feof( bin ); c = fgetc( bin ) ) {
         crc_fputc( c, htp );
@@ -61,6 +62,10 @@ void copy_to_name( char* basename ) {
     for( int j = i; j < 17; j++ ) htp_name[ j ] = 0;
 }
 /********************************************************************************************************************
+ * Parameter functions
+ ********************************************************************************************************************/
+
+/********************************************************************************************************************
  * Main functions
  ********************************************************************************************************************/
 
@@ -73,7 +78,7 @@ void print_usage() {
     printf( "-t source_bas_txt_file : TXT file contains BASIC source code with line numbers.\n");
     printf( "-B basic_output_fie    : Savce the final BASIC source code int htp file.\n");
     printf( "-b z80_bin_file        : z80 system binary block.\n");
-    printf( "-L bin_load_address    : load address for binary block. Default value is 0x6000 (24576 in decimal).\n");
+    printf( "-L bin_load_address    : load address for binary block. Default value is first: 0x4100 (16640 in decimal), second: 0x60C0 (24768 in decimal).\n");
     printf( "-o htp_file_name       : Name of the new htp file.\n");
     printf( "-n name_on_tape        : The tape name. Default name created from ptp filename.\n");
     printf( "-s character           : skip BASIC comments with this first character. ''=skip all comments. 'no'=disable comment skipping. Default value is '!'\n");
@@ -92,7 +97,10 @@ int main(int argc, char *argv[]) {
     FILE *txt = 0;
     FILE *BAS = 0;
     FILE *bin = 0;
-    uint16_t bin_load_address = 0x6000;
+    FILE *bin2 = 0;
+    uint16_t tmp_load_address; // Ideiglenes terület a scan-hez, mert az új értékek felülírják a régit
+    uint16_t bin_load_address = 0x4100;
+    uint16_t bin2_load_address = 0x60C0;
     while ( ( opt = getopt (argc, argv, "iplv?h:n:s:t:B:b:L:o:") ) != -1 ) {
         switch ( opt ) {
             case -1:
@@ -146,19 +154,35 @@ int main(int argc, char *argv[]) {
                 break;
 
             case 'b': // open bin file
-                if ( !( bin = fopen( optarg, "rb" ) ) ) {
-                    fprintf( stderr, "Error opening %s.\n", optarg);
-                    exit(4);
+                if ( bin ) {
+                    if ( !( bin2 = fopen( optarg, "rb" ) ) ) {
+                        fprintf( stderr, "Error opening %s.\n", optarg);
+                        exit(4);
+                    }
+                } else {
+                    if ( !( bin = fopen( optarg, "rb" ) ) ) {
+                        fprintf( stderr, "Error opening %s.\n", optarg);
+                        exit(4);
+                    }
+                    srcBasename = copyStr( basename( optarg ), 4 );
+                    destDir = copyStr( dirname( optarg ), 0 );
+                    if ( !htp_name[ 0 ] ) copy_to_name( srcBasename );
                 }
-                srcBasename = copyStr( basename( optarg ), 4 );
-                destDir = copyStr( dirname( optarg ), 0 );
-                if ( !htp_name[ 0 ] ) copy_to_name( srcBasename );
                 break;
 
             case 'L':
-                if ( !sscanf( optarg, "%u", &bin_load_address ) ) {
-                    fprintf( stderr, "Error parsing argument for '-L'.\n");
-                    exit(2);
+                if ( bin2 ) {
+                    if ( !sscanf( optarg, "%u", &tmp_load_address ) ) {
+                        fprintf( stderr, "Error parsing argument for '-L'.\n");
+                        exit(2);
+                    }
+                    bin2_load_address = tmp_load_address;
+                } else { // Load address for bin
+                    if ( !sscanf( optarg, "%u", &tmp_load_address ) ) {
+                        fprintf( stderr, "Error parsing argument for '-L'.\n");
+                        exit(2);
+                    }
+                    bin_load_address = tmp_load_address;
                 }
                 break;
 
@@ -183,7 +207,8 @@ int main(int argc, char *argv[]) {
         dropExtIfExists( htp_name );
         create_bas_htp_block( htp, txt, htp_name, !bin, BAS );
         if ( BAS ) fclose( BAS );
-        if ( bin ) create_bin_htp_block( htp, bin, bin_load_address, 0, 1 );
+        if ( bin ) create_bin_htp_block( htp, bin, bin_load_address, 0, !bin2 );
+        if ( bin2 ) create_bin_htp_block( htp, bin2, bin2_load_address, 0, 1 );
         close_htp_file( htp );
     } else {
         print_usage();
