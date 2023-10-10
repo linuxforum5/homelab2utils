@@ -39,7 +39,7 @@ char htp_name[65] = { 0 };
  * HTP functions
  ********************************************************************************************************************/
 void create_bin_htp_block( FILE *htp, FILE *bin, uint16_t bin_load_address, const char* htp_name, int is_last ) {
-printf( "!!! %04X\n", bin_load_address );
+    // printf( "!!! %04X\n", bin_load_address );
     write_htp_header( htp, 128, bin_load_address, htp_name );
     for( unsigned char c = fgetc( bin ); !feof( bin ); c = fgetc( bin ) ) {
         crc_fputc( c, htp );
