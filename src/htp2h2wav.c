@@ -101,13 +101,15 @@ static void init_wav( FILE *wavfile ) {
     fwrite( &waveHeader, sizeof( waveHeader ), 1, wavfile );
     /* Lead in silence */
     write_peaks( wavfile, 2000, silence );
+    /* First sync peak */
+    write_peaks( wavfile, sync_us, high );
 }
 
 static void process_htp( FILE *input, FILE* output ) {
-    while ( !feof( input ) ) {
-        unsigned char c = fgetc( input );
-        // if ( !feof( input ) ) 
+    int c = fgetc(input);
+    while (c != EOF) {
         write_byte_into_wav( output, c );
+        c = fgetc(input);
     }
     fclose( input );
 //    write_byte_into_wav( output, 0 );
