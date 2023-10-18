@@ -19,6 +19,7 @@ unsigned char high = POS_PEAK;
 unsigned char low = SILENCE;
 int sync_us = 150; // 48000Hz esetén 50-200-ig ok Homelab 4 alapjáűn 200us
 int bit_length = 1600; // in us
+int prefix_silence_length = 2000;
 
 /* WAV file header structure */
 /* should be 1-byte aligned */
@@ -100,7 +101,7 @@ static void init_wav( FILE *wavfile ) {
 
     fwrite( &waveHeader, sizeof( waveHeader ), 1, wavfile );
     /* Lead in silence */
-    write_peaks( wavfile, 2000, silence );
+    write_peaks( wavfile, prefix_silence_length, silence );
 }
 
 static void process_htp( FILE *input, FILE* output ) {
@@ -121,13 +122,14 @@ static void print_usage() {
     printf( "Usage:\n");
     printf( "htp2h2wav -i <input_filename> -o <output_filename>\n");
     printf( "Command line option:\n");
-    printf( "-f <freq> : Supported sample rates are: 48000, 44100, 22050, 11025 and 8000. Defaut is 44100Hz\n");
-    printf( "-S <value>: Silence value. [0-255] Default is 0x80\n");
-    printf( "-H <value>: High value. [0-255] Default is 0xff\n");
-    printf( "-L <value>: Low value. [0-255] Default is 0x80\n");
-    printf( "-P <us>   : Peak length in us Default is 150\n");
-    printf( "-B <us>   : Bit length in us Default is 1600\n");
-    printf( "-h        : prints this text\n");
+    printf( "-f <freq>  : Supported sample rates are: 48000, 44100, 22050, 11025 and 8000. Defaut is 44100Hz\n");
+    printf( "-S <value> : Silence value. [0-255] Default is 0x80\n");
+    printf( "-p <length>: Prefix silence length in sample. Default value is %d\n", prefix_silence_length );
+    printf( "-H <value> : High value. [0-255] Default is 0xff\n");
+    printf( "-L <value> : Low value. [0-255] Default is 0x80\n");
+    printf( "-P <us>    : Peak length in us Default is 150\n");
+    printf( "-B <us>    : Bit length in us Default is 1600\n");
+    printf( "-h         : prints this text\n");
     exit(1);
 }    
 
@@ -137,7 +139,7 @@ int main(int argc, char *argv[]) {
     FILE *htp = 0, *wav = 0;
 
     while (!finished) {
-        switch (getopt (argc, argv, "?hf:H:S:L:P:B:i:o:g:")) {
+        switch (getopt (argc, argv, "?hf:H:S:p:L:P:B:i:o:g:")) {
             case -1:
             case ':':
                 finished = 1;
@@ -168,6 +170,14 @@ int main(int argc, char *argv[]) {
                     exit(2);
                 } else {
                     silence = arg1;
+                }
+                break;
+            case 'p':
+                if ( !sscanf( optarg, "%i", &arg1 ) ) {
+                    fprintf( stderr, "Error parsing argument for '-p'.\n");
+                    exit(2);
+                } else {
+                    prefix_silence_length = arg1;
                 }
                 break;
             case 'P':
